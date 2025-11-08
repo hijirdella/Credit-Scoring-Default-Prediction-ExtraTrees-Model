@@ -146,8 +146,8 @@ def plot_pd_histogram(scored_df):
     st.pyplot(fig)
 
 
-def plot_correlation_heatmap(df_fe, max_features=10):
-    # pick numeric columns, excluding ids
+def plot_correlation_heatmap(df_fe, max_features=7):
+    # numeric columns, excluding obvious ids
     num_cols = [
         c for c in df_fe.select_dtypes(include=[np.number]).columns
         if "id" not in c.lower()
@@ -155,30 +155,26 @@ def plot_correlation_heatmap(df_fe, max_features=10):
     if len(num_cols) < 2:
         return
 
-    # limit number of features so labels are readable
+    # keep only a small set so everything fits
     if len(num_cols) > max_features:
         num_cols = num_cols[:max_features]
 
     corr = df_fe[num_cols].corr()
 
-    # shorter, wider figure so Streamlit doesn't crop vertically
-    fig, ax = plt.subplots(figsize=(3, 1.8))
+    # flat, compact figure
+    fig, ax = plt.subplots(figsize=(3, 2.0))
     sns.heatmap(
         corr,
         cmap=HEATMAP_CMAP,
-        square=False,            # allow rectangular cells
+        square=False,
         linewidths=0.3,
         cbar_kws={"shrink": 0.4},
         ax=ax,
     )
     ax.set_title("Correlation Heatmap", fontsize=7, pad=4)
     ax.tick_params(axis="both", labelsize=4)
-
-    # compact layout to keep all labels inside the figure
     plt.tight_layout(pad=0.5)
-
     st.pyplot(fig)
-
 
 
 def plot_default_rate_deciles(dec_table):
@@ -679,4 +675,3 @@ not for data preprocessing or retraining.
 
 if __name__ == "__main__":
     main()
-
