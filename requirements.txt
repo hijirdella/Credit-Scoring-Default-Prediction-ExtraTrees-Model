@@ -1,16 +1,11 @@
-# requirements.txt
-
 streamlit==1.40.0
+
 pandas==2.2.3
 numpy==1.26.4
 
-# Matching, compatible versions
 scikit-learn==1.4.2
 imbalanced-learn==0.12.0
-
 joblib==1.4.2
+
 matplotlib==3.9.2
 seaborn==0.13.2
-
-
-
