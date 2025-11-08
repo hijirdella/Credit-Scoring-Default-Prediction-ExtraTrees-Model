@@ -24,6 +24,11 @@ MODEL_PATH = "best_credit_scoring_extratrees.pkl"
 ORANGE = "#FF9800"
 DARK_GREEN = "#2E7D32"
 
+# Tinggi tabel dan ukuran grafik standar
+TABLE_HEIGHT = 300
+FIG_W = 4
+FIG_H = 3
+
 # Colormap untuk heatmap korelasi
 HEATMAP_CMAP = LinearSegmentedColormap.from_list(
     "green_orange", [DARK_GREEN, "white", ORANGE]
@@ -41,6 +46,7 @@ REQUIRED_COLUMNS = [
 st.set_page_config(
     page_title="Credit Default Prediction Dashboard",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 # ---------------------------------------------------------------------
@@ -73,7 +79,7 @@ def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
 def add_bar_labels(ax, fmt="{:.0f}", skip_zero: bool = True, eps: float = 1e-9):
     """
     Tambahkan label angka di atas bar.
-    Kalau skip_zero=True, bar dengan value sangat kecil (~0) tidak dikasih label (menghindari 0.00).
+    Kalau skip_zero=True, bar dengan value sangat kecil (~0) tidak dikasih label.
     """
     for p in ax.patches:
         height = p.get_height()
@@ -101,7 +107,7 @@ def plot_target_distribution(df):
     labels = ["Non-default", "Default"]
     values = [counts.get(0, 0), counts.get(1, 0)]
 
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
     ax.set_title("Customer Default Distribution")
     ax.set_xlabel("Default Flag")
@@ -123,7 +129,7 @@ def plot_default_rate_by_category(df, col, max_categories=8):
         .sort_values("default_rate", ascending=False)
     )
 
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=col, y="default_rate", data=rate_df, color=ORANGE, ax=ax)
     ax.set_title(f"Default Rate by {col}")
     ax.set_ylabel("Default Rate")
@@ -135,7 +141,7 @@ def plot_default_rate_by_category(df, col, max_categories=8):
 def plot_pd_histogram(scored_df):
     if "pd" not in scored_df.columns:
         return
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     counts, bins, patches = ax.hist(scored_df["pd"], bins=20, color=ORANGE, edgecolor="k")
     ax.set_title("Predicted PD Distribution")
     ax.set_xlabel("PD")
@@ -165,7 +171,7 @@ def plot_default_vs_nondefault(scored_df):
     col1, col2 = st.columns(2)
 
     with col1:
-        fig, ax = plt.subplots(figsize=(4, 3))
+        fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
         sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
         ax.set_title("Customer Count by Default Status")
         ax.set_xlabel("Status")
@@ -176,7 +182,7 @@ def plot_default_vs_nondefault(scored_df):
     with col2:
         total = sum(values)
         if total > 0:
-            fig, ax = plt.subplots(figsize=(4, 3))
+            fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             ax.pie(
                 values,
                 labels=labels,
@@ -197,7 +203,7 @@ def plot_correlation_heatmap(df_fe, max_features=15):
     if len(num_cols) > max_features:
         num_cols = num_cols[:max_features]
     corr = df_fe[num_cols].corr()
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=(6, 5))  # heatmap boleh sedikit lebih besar
     sns.heatmap(corr, cmap=HEATMAP_CMAP, square=True, cbar=True, linewidths=0.5, ax=ax)
     ax.set_title("Correlation Heatmap (Customer-level numeric features)")
     st.pyplot(fig)
@@ -208,7 +214,7 @@ def plot_default_rate_deciles(dec_table):
         return
     d = dec_table.sort_values("decile")
     x = d["decile"].astype(str)
-    fig, ax1 = plt.subplots(figsize=(6, 3))
+    fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
     ax1.bar(x, d["default_rate"], color=ORANGE)
     ax1.set_xlabel("Decile (1 = lowest PD, 10 = highest PD)")
     ax1.set_ylabel("Default Rate")
@@ -248,7 +254,7 @@ def plot_top_bottom_decile_feature_means(scored_full):
         }
     ).melt(id_vars="feature", var_name="group", value_name="value")
 
-    fig, ax = plt.subplots(figsize=(6, 3))
+    fig, ax = plt.subplots(figsize=(FIG_W * 1.5, FIG_H))  # sedikit lebih lebar untuk banyak fitur
     sns.barplot(
         data=plot_df,
         x="feature",
@@ -391,10 +397,15 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
 # Main App
 # ---------------------------------------------------------------------
 def main():
-    st.title("Credit Default Prediction Dashboard")
+    # Layout dua kolom: kiri untuk info (App Flow, Important Note, Created by),
+    # kanan untuk Input Data (file uploader)
+    info_col, input_col = st.columns([2, 1])
 
-    st.markdown(
-        """
+    with info_col:
+        st.title("Credit Default Prediction Dashboard")
+
+        st.markdown(
+            """
 This interactive dashboard demonstrates a **machine learning–based credit risk model**  
 built using **loan, payment, and customer data**.
 
@@ -424,17 +435,31 @@ Therefore, this dashboard is designed for **model inference and business insight
 not for data preprocessing or retraining.
 
 ---
+            """
+        )
 
-**Required columns in the input CSV:**  
-`""" + ", ".join(REQUIRED_COLUMNS) + "`"
-    )
+        st.markdown("**Created by:** Hijir Della Wirasti")
+        st.markdown(
+            """
+[Website](https://www.hijirdata.com/)  
+[LinkedIn](https://www.linkedin.com/in/hijirdella/)  
+[Email](mailto:hijirdw@gmail.com)  
+[GitHub](https://github.com/hijirdella)
+            """
+        )
 
-    st.sidebar.header("Input Data")
-    uploaded = st.sidebar.file_uploader(
-        "Upload input CSV (same structure as combined_df.csv)",
-        type=["csv"],
-        help="Any CSV filename is allowed, as long as its columns follow the combined_df.csv structure.",
-    )
+        st.markdown(
+            "**Required columns in the input CSV:**  \n"
+            + "`" + ", ".join(REQUIRED_COLUMNS) + "`"
+        )
+
+    with input_col:
+        st.markdown("### Input Data")
+        uploaded = st.file_uploader(
+            "Upload input CSV (same structure as combined_df.csv)",
+            type=["csv"],
+            help="Any CSV filename is allowed, as long as its columns follow the combined_df.csv structure.",
+        )
 
     if uploaded is None:
         st.info("Please upload a CSV file with combined_df-like structure to start.")
@@ -469,11 +494,11 @@ not for data preprocessing or retraining.
         if num_cols:
             st.dataframe(
                 raw_df[num_cols].describe().T,
-                height=380,
+                height=TABLE_HEIGHT,
                 use_container_width=True,
             )
             sel_num = st.selectbox("Numeric column for histogram", num_cols)
-            fig, ax = plt.subplots(figsize=(5, 3))
+            fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             ax.hist(raw_df[sel_num].dropna(), bins=30, color=ORANGE, edgecolor="k")
             ax.set_title(f"Histogram of {sel_num}")
             ax.set_xlabel(sel_num)
@@ -503,13 +528,13 @@ not for data preprocessing or retraining.
                 })
             st.dataframe(
                 pd.DataFrame(rows),
-                height=380,
+                height=TABLE_HEIGHT,
                 use_container_width=True,
             )
 
             sel_cat = st.selectbox("Categorical column for bar chart", ordered)
             vc = raw_df[sel_cat].value_counts().head(15)
-            fig, ax = plt.subplots(figsize=(5, 3))
+            fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             sns.barplot(x=vc.index, y=vc.values, ax=ax, color=DARK_GREEN)
             ax.set_title(f"Top categories of {sel_cat}")
             ax.set_xlabel(sel_cat)
