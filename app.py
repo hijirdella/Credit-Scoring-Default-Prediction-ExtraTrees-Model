@@ -371,7 +371,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             )
             st.write(
                 f"This corresponds to approving roughly **{accept_rate:.1%}** of "
-                f"customers with an estimated portfolio default rate of about "
+                "customers with an estimated portfolio default rate of about "
                 f"**{cum_def_rate:.2%}** on the historical data."
             )
     else:
@@ -602,15 +602,8 @@ not for data preprocessing or retraining.
     plot_pd_histogram(scored_df)
 
     st.subheader("7. Predicted Default vs Non-default (PD-based)")
-    threshold = st.slider(
-        "PD threshold for classifying predicted default",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        key="pd_threshold_slider",
-    )
-    plot_predicted_default_vs_nondefault(scored_full, threshold)
+    st.caption("Classification uses a fixed PD threshold of 0.50 to separate predicted default vs non-default.")
+    plot_predicted_default_vs_nondefault(scored_full, threshold=0.5)
 
     if "default_flag_customer" in scored_full.columns:
         dec_input = scored_full[["customer_id", "default_flag_customer", "pd"]].copy()
