@@ -67,15 +67,24 @@ def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_bar_labels(ax, fmt="{:.0f}"):
+def add_bar_labels(ax, fmt="{:.0f}", skip_zero: bool = True, eps: float = 1e-9):
+    """
+    Tambahkan label angka di atas bar.
+    Kalau skip_zero=True, bar dengan value ~0 tidak dikasih label (menghindari 0.00 jelek).
+    """
     for p in ax.patches:
         height = p.get_height()
-        if not np.isnan(height):
-            ax.annotate(
-                fmt.format(height),
-                (p.get_x() + p.get_width() / 2.0, height),
-                ha="center", va="bottom", fontsize=8
-            )
+        if np.isnan(height):
+            continue
+        if skip_zero and abs(height) < eps:
+            continue
+        ax.annotate(
+            fmt.format(height),
+            (p.get_x() + p.get_width() / 2.0, height),
+            ha="center",
+            va="bottom",
+            fontsize=8
+        )
 
 # ---------------------------------------------------------------------
 # Visualization helpers
@@ -249,16 +258,14 @@ def plot_top_bottom_decile_feature_means(scored_full):
     ax.set_xlabel("Feature")
     ax.set_ylabel("Mean Value")
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    add_bar_labels(ax, fmt="{:.2f}")
+    # label, tapi skip bar yang 0.00
+    add_bar_labels(ax, fmt="{:.2f}", skip_zero=True)
     st.pyplot(fig)
 
 # ---------------------------------------------------------------------
 # Business insights (dynamic numbers from data)
 # ---------------------------------------------------------------------
 def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame):
-    """
-    Answer business questions using actual numbers from decile table and PD scores.
-    """
     st.subheader("7. Business Questions")
 
     has_target = "default_flag_customer" in scored_full.columns
@@ -452,10 +459,12 @@ built using loan, payment, and customer data.
     with col2:
         st.markdown("**Categorical Overview**")
         if cat_cols:
+            # urutan: kategori biasa -> date/time -> ID (paling bawah)
             date_cols = [c for c in cat_cols if any(x in c.lower() for x in ["date", "time", "ts"])]
             id_cols = [c for c in cat_cols if "id" in c.lower()]
             main_cat = [c for c in cat_cols if c not in id_cols + date_cols]
-            ordered = main_cat + [c for c in cat_cols if c in id_cols + date_cols]
+
+            ordered = main_cat + [c for c in cat_cols if c in date_cols] + [c for c in cat_cols if c in id_cols]
 
             rows = []
             for c in ordered:
@@ -561,7 +570,7 @@ built using loan, payment, and customer data.
     except Exception as e:
         st.warning(f"Could not extract feature importance: {e}")
 
-    # Business questions with numbers from data
+    # Business questions with dynamic numbers
     render_business_insights(scored_full, dec_table)
 
     # Default vs non-default overview
