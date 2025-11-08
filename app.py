@@ -23,8 +23,8 @@ ORANGE = "#FF9800"
 DARK_GREEN = "#2E7D32"
 
 TABLE_HEIGHT = 260
-FIG_W = 3.8
-FIG_H = 2.6
+FIG_W = 3.2
+FIG_H = 2.2
 
 HEATMAP_CMAP = LinearSegmentedColormap.from_list(
     "green_orange", [DARK_GREEN, "white", ORANGE]
@@ -76,7 +76,7 @@ def add_bar_labels(ax, fmt="{:.0f}", skip_zero=True, eps=1e-9):
             (p.get_x() + p.get_width() / 2, h),
             ha="center",
             va="bottom",
-            fontsize=5,
+            fontsize=4,
         )
 
 
@@ -88,10 +88,10 @@ def plot_target_distribution(df):
     values = [counts.get(0, 0), counts.get(1, 0)]
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
-    ax.set_title("Customer Default Distribution", fontsize=8)
-    ax.set_xlabel("Default Flag", fontsize=6)
-    ax.set_ylabel("Count", fontsize=6)
-    ax.tick_params(axis="both", labelsize=5)
+    ax.set_title("Customer Default Distribution", fontsize=7)
+    ax.set_xlabel("Default Flag", fontsize=5)
+    ax.set_ylabel("Count", fontsize=5)
+    ax.tick_params(axis="both", labelsize=4)
     add_bar_labels(ax)
     plt.tight_layout()
     st.pyplot(fig)
@@ -111,11 +111,11 @@ def plot_default_rate_by_category(df, col, max_categories=8):
     )
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=col, y="default_rate", data=rate_df, color=ORANGE, ax=ax)
-    ax.set_title(f"Default Rate by {col}", fontsize=8)
-    ax.set_ylabel("Default Rate", fontsize=6)
-    ax.set_xlabel(col, fontsize=6)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=5)
-    ax.tick_params(axis="y", labelsize=5)
+    ax.set_title(f"Default Rate by {col}", fontsize=7)
+    ax.set_ylabel("Default Rate", fontsize=5)
+    ax.set_xlabel(col, fontsize=5)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=4)
+    ax.tick_params(axis="y", labelsize=4)
     add_bar_labels(ax, fmt="{:.1%}")
     plt.tight_layout()
     st.pyplot(fig)
@@ -125,11 +125,13 @@ def plot_pd_histogram(scored_df):
     if "pd" not in scored_df.columns:
         return
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
-    counts, _, patches = ax.hist(scored_df["pd"], bins=20, color=ORANGE, edgecolor="k")
-    ax.set_title("Predicted PD Distribution", fontsize=8)
-    ax.set_xlabel("PD", fontsize=6)
-    ax.set_ylabel("Count", fontsize=6)
-    ax.tick_params(axis="both", labelsize=5)
+    counts, _, patches = ax.hist(
+        scored_df["pd"], bins=15, color=ORANGE, edgecolor="k"
+    )
+    ax.set_title("Predicted PD Distribution", fontsize=7)
+    ax.set_xlabel("PD", fontsize=5)
+    ax.set_ylabel("Count", fontsize=5)
+    ax.tick_params(axis="both", labelsize=4)
     for count, patch in zip(counts, patches):
         if count > 0:
             ax.text(
@@ -138,7 +140,7 @@ def plot_pd_histogram(scored_df):
                 f"{int(count)}",
                 ha="center",
                 va="bottom",
-                fontsize=5,
+                fontsize=4,
             )
     plt.tight_layout()
     st.pyplot(fig)
@@ -154,17 +156,17 @@ def plot_correlation_heatmap(df_fe, max_features=15):
     if len(num_cols) > max_features:
         num_cols = num_cols[:max_features]
     corr = df_fe[num_cols].corr()
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(3, 2.2))
     sns.heatmap(
         corr,
         cmap=HEATMAP_CMAP,
         square=True,
         linewidths=0.3,
-        cbar_kws={"shrink": 0.5},
+        cbar_kws={"shrink": 0.4},
         ax=ax,
     )
-    ax.set_title("Correlation Heatmap", fontsize=8)
-    ax.tick_params(axis="both", labelsize=5)
+    ax.set_title("Correlation Heatmap", fontsize=7)
+    ax.tick_params(axis="both", labelsize=4)
     plt.tight_layout()
     st.pyplot(fig)
 
@@ -176,9 +178,9 @@ def plot_default_rate_deciles(dec_table):
     x = d["decile"].astype(str)
     fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
     bars = ax1.bar(x, d["default_rate"], color=ORANGE)
-    ax1.set_xlabel("Decile", fontsize=6)
-    ax1.set_ylabel("Default Rate", fontsize=6)
-    ax1.tick_params(axis="both", labelsize=5)
+    ax1.set_xlabel("Decile", fontsize=5)
+    ax1.set_ylabel("Default Rate", fontsize=5)
+    ax1.tick_params(axis="both", labelsize=4)
     for p in bars:
         h = p.get_height()
         if not np.isnan(h):
@@ -188,7 +190,7 @@ def plot_default_rate_deciles(dec_table):
                 f"{h:.1%}",
                 ha="center",
                 va="bottom",
-                fontsize=5,
+                fontsize=4,
             )
     if "cum_default_rate" in d.columns:
         ax2 = ax1.twinx()
@@ -197,12 +199,12 @@ def plot_default_rate_deciles(dec_table):
             d["cum_default_rate"],
             marker="o",
             color=DARK_GREEN,
-            linewidth=1.2,
+            linewidth=1.0,
             markersize=2,
         )
-        ax2.set_ylabel("Cumulative Default Rate", fontsize=6)
-        ax2.tick_params(axis="y", labelsize=5)
-    ax1.set_title("Default Rate and Cumulative Default Rate by Decile", fontsize=8)
+        ax2.set_ylabel("Cumulative Default Rate", fontsize=5)
+        ax2.tick_params(axis="y", labelsize=4)
+    ax1.set_title("Default Rate and Cumulative Default Rate by Decile", fontsize=7)
     plt.tight_layout()
     st.pyplot(fig)
 
@@ -247,13 +249,13 @@ def plot_top_bottom_decile_feature_means(scored_full):
             "Decile 10 (highest PD)": ORANGE,
         },
     )
-    ax.set_title("Key Behavioural Features: Decile 1 vs Decile 10", fontsize=8)
-    ax.set_xlabel("Feature", fontsize=6)
-    ax.set_ylabel("Mean Value", fontsize=6)
-    ax.tick_params(axis="x", labelsize=5, rotation=45)
-    ax.tick_params(axis="y", labelsize=5)
-    ax.legend(title="Group", fontsize=5.5, title_fontsize=6)
-    add_bar_labels(ax, fmt="{:.2f}", skip_zero=True)
+    ax.set_title("Key Behavioural Features: Decile 1 vs Decile 10", fontsize=7)
+    ax.set_xlabel("Feature", fontsize=5)
+    ax.set_ylabel("Mean Value", fontsize=5)
+    ax.tick_params(axis="x", labelsize=4, rotation=45)
+    ax.tick_params(axis="y", labelsize=4)
+    ax.legend(title="Group", fontsize=4, title_fontsize=4.5)
+    add_bar_labels(ax, fmt="{:.2f}")
     plt.tight_layout()
     st.pyplot(fig)
 
@@ -272,10 +274,10 @@ def plot_default_vs_nondefault(df):
     with col1:
         fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
         sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
-        ax.set_title("Customer Count by Default Status", fontsize=8)
-        ax.set_xlabel("Status", fontsize=6)
-        ax.set_ylabel("Count", fontsize=6)
-        ax.tick_params(axis="both", labelsize=5)
+        ax.set_title("Customer Count by Default Status", fontsize=7)
+        ax.set_xlabel("Status", fontsize=5)
+        ax.set_ylabel("Count", fontsize=5)
+        ax.tick_params(axis="both", labelsize=4)
         add_bar_labels(ax)
         plt.tight_layout()
         st.pyplot(fig)
@@ -290,9 +292,9 @@ def plot_default_vs_nondefault(df):
                 colors=[DARK_GREEN, ORANGE],
                 autopct=lambda p: f"{p:.1f}%",
                 startangle=90,
-                textprops={"fontsize": 5},
+                textprops={"fontsize": 4},
             )
-            ax.set_title("Customer % by Default Status", fontsize=8)
+            ax.set_title("Customer % by Default Status", fontsize=7)
             ax.axis("equal")
             plt.tight_layout()
             st.pyplot(fig)
@@ -501,10 +503,10 @@ not for data preprocessing or retraining.
             sel_num = st.selectbox("Numeric column for histogram", num_cols)
             fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             ax.hist(raw_df[sel_num].dropna(), bins=30, color=ORANGE, edgecolor="k")
-            ax.set_title(f"Histogram of {sel_num}", fontsize=8)
-            ax.set_xlabel(sel_num, fontsize=6)
-            ax.set_ylabel("Frequency", fontsize=6)
-            ax.tick_params(axis="both", labelsize=5)
+            ax.set_title(f"Histogram of {sel_num}", fontsize=7)
+            ax.set_xlabel(sel_num, fontsize=5)
+            ax.set_ylabel("Frequency", fontsize=5)
+            ax.tick_params(axis="both", labelsize=4)
             plt.tight_layout()
             st.pyplot(fig)
         else:
@@ -538,11 +540,11 @@ not for data preprocessing or retraining.
             vc = raw_df[sel_cat].value_counts().head(15)
             fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             sns.barplot(x=vc.index, y=vc.values, ax=ax, color=DARK_GREEN)
-            ax.set_title(f"Top categories of {sel_cat}", fontsize=8)
-            ax.set_xlabel(sel_cat, fontsize=6)
-            ax.set_ylabel("Count", fontsize=6)
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=5)
-            ax.tick_params(axis="y", labelsize=5)
+            ax.set_title(f"Top categories of {sel_cat}", fontsize=7)
+            ax.set_xlabel(sel_cat, fontsize=5)
+            ax.set_ylabel("Count", fontsize=5)
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=4)
+            ax.tick_params(axis="y", labelsize=4)
             plt.tight_layout()
             st.pyplot(fig)
         else:
