@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
+from io import BytesIO
 
 from credit_scoring_utils import (
     build_customer_features_from_combined,
@@ -15,6 +16,10 @@ from credit_scoring_utils import (
 )
 
 MODEL_PATH = "best_credit_scoring_extratrees.pkl"
+
+# Color palette
+ORANGE = "#FF9800"
+DARK_GREEN = "#2E7D32"
 
 st.set_page_config(
     page_title="Credit Default Prediction Dashboard",
@@ -41,7 +46,6 @@ def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
             def _to_str(x):
                 if pd.isna(x):
                     return ""
-                # numeric -> int -> str (no .0)
                 if isinstance(x, (int, np.integer)):
                     return str(x)
                 if isinstance(x, (float, np.floating)):
@@ -63,6 +67,7 @@ def plot_target_distribution(df_fe: pd.DataFrame):
         x=target_counts.index.map({0: "Non-default", 1: "Default"}),
         y=target_counts.values,
         ax=ax,
+        palette=[DARK_GREEN, ORANGE],
     )
     ax.set_title("Customer-level Default Distribution")
     ax.set_xlabel("Default Flag")
@@ -90,7 +95,7 @@ def plot_default_rate_by_category(df_fe: pd.DataFrame, col: str, max_categories:
     )
 
     fig, ax = plt.subplots(figsize=(5, 3))
-    sns.barplot(data=rate_df, x=col, y="default_rate", ax=ax)
+    sns.barplot(data=rate_df, x=col, y="default_rate", ax=ax, color=ORANGE)
     ax.set_title(f"Default Rate by {col}")
     ax.set_ylabel("Default Rate")
     ax.set_xlabel(col)
@@ -103,7 +108,7 @@ def plot_pd_histogram(scored_df: pd.DataFrame):
         return
 
     fig, ax = plt.subplots(figsize=(5, 3))
-    ax.hist(scored_df["pd"], bins=20, edgecolor="k")
+    ax.hist(scored_df["pd"], bins=20, edgecolor="k", color=ORANGE)
     ax.set_title("Predicted PD Distribution")
     ax.set_xlabel("PD")
     ax.set_ylabel("Number of Customers")
@@ -122,13 +127,13 @@ def plot_default_rate_deciles(dec_table: pd.DataFrame):
     x = d["decile"].astype(str)
 
     fig, ax1 = plt.subplots(figsize=(6, 3))
-    ax1.bar(x, d["default_rate"], alpha=0.8)
+    ax1.bar(x, d["default_rate"], alpha=0.8, color=ORANGE)
     ax1.set_xlabel("Decile (1 = lowest PD, 10 = highest PD)")
     ax1.set_ylabel("Default Rate")
 
     if "cum_default_rate" in d.columns:
         ax2 = ax1.twinx()
-        ax2.plot(x, d["cum_default_rate"], marker="o")
+        ax2.plot(x, d["cum_default_rate"], marker="o", color=DARK_GREEN)
         ax2.set_ylabel("Cumulative Default Rate")
 
     ax1.set_title("Default Rate and Cumulative Default Rate by Decile")
@@ -171,7 +176,14 @@ def plot_top_bottom_decile_feature_means(scored_full: pd.DataFrame):
     plot_df = plot_df.melt(id_vars="feature", var_name="group", value_name="value")
 
     fig, ax = plt.subplots(figsize=(6, 3))
-    sns.barplot(data=plot_df, x="feature", y="value", hue="group", ax=ax)
+    sns.barplot(
+        data=plot_df,
+        x="feature",
+        y="value",
+        hue="group",
+        ax=ax,
+        palette={"Decile 1 (lowest PD)": DARK_GREEN, "Decile 10 (highest PD)": ORANGE},
+    )
     ax.set_title("Key Behavioural Features: Decile 1 vs Decile 10")
     ax.set_xlabel("Feature")
     ax.set_ylabel("Mean Value")
@@ -342,7 +354,15 @@ def main():
     st.subheader("2. Raw Data EDA (combined_df)")
 
     numeric_cols = raw_df.select_dtypes(include=[np.number]).columns.tolist()
-    categorical_cols = raw_df.select_dtypes(include=["object", "string"]).columns.tolist()
+    all_cat_cols = raw_df.select_dtypes(include=["object", "string"]).columns.tolist()
+
+    # Identify date-like columns to exclude from category charts
+    date_like_cols = [
+        c
+        for c in all_cat_cols
+        if any(k in c.lower() for k in ["date", "time", "ts"])
+    ]
+    categorical_cols = [c for c in all_cat_cols if c not in date_like_cols]
 
     col1, col2 = st.columns(2)
 
@@ -357,7 +377,7 @@ def main():
                 index=0,
             )
             fig, ax = plt.subplots(figsize=(5, 3))
-            ax.hist(raw_df[selected_num].dropna(), bins=30, edgecolor="k")
+            ax.hist(raw_df[selected_num].dropna(), bins=30, edgecolor="k", color=ORANGE)
             ax.set_title(f"Histogram of {selected_num}")
             ax.set_xlabel(selected_num)
             ax.set_ylabel("Frequency")
@@ -367,20 +387,50 @@ def main():
 
     with col2:
         st.markdown("**Categorical overview**")
-        if categorical_cols:
-            selected_cat = st.selectbox(
-                "Categorical column for bar chart",
-                options=categorical_cols,
-                index=min(0, len(categorical_cols) - 1),
+
+        if all_cat_cols:
+            # Overview table (including date-like columns)
+            overview_rows = []
+            for col in all_cat_cols:
+                vc = raw_df[col].value_counts(dropna=False)
+                n_unique = len(vc)
+                if n_unique > 0:
+                    top_cat = vc.index[0]
+                    top_cnt = int(vc.iloc[0])
+                else:
+                    top_cat = None
+                    top_cnt = 0
+                overview_rows.append(
+                    {
+                        "column": col,
+                        "n_unique": n_unique,
+                        "top_category": top_cat,
+                        "top_count": top_cnt,
+                    }
+                )
+            overview_df = pd.DataFrame(overview_rows).sort_values(
+                "n_unique", ascending=False
             )
-            vc = raw_df[selected_cat].value_counts().head(15)
-            fig, ax = plt.subplots(figsize=(5, 3))
-            sns.barplot(x=vc.index, y=vc.values, ax=ax)
-            ax.set_title(f"Top categories of {selected_cat}")
-            ax.set_xlabel(selected_cat)
-            ax.set_ylabel("Count")
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-            st.pyplot(fig)
+            st.write("Categorical columns summary (including date-like fields):")
+            st.dataframe(overview_df)
+
+            # Category chart (exclude date-like columns)
+            if categorical_cols:
+                selected_cat = st.selectbox(
+                    "Categorical column for bar chart (dates excluded)",
+                    options=categorical_cols,
+                    index=0,
+                )
+                vc = raw_df[selected_cat].value_counts().head(15)
+                fig, ax = plt.subplots(figsize=(5, 3))
+                sns.barplot(x=vc.index, y=vc.values, ax=ax, color=DARK_GREEN)
+                ax.set_title(f"Top categories of {selected_cat}")
+                ax.set_xlabel(selected_cat)
+                ax.set_ylabel("Count")
+                ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+                st.pyplot(fig)
+            else:
+                st.info("No non-date categorical columns available for plotting.")
         else:
             st.info("No categorical columns found in the raw dataset.")
 
@@ -431,6 +481,12 @@ def main():
             f"'{MODEL_PATH}'. Please ensure the file exists and sklearn/numpy versions match. "
             f"Error: {e}"
         )
+        return
+
+    run_pred = st.button("Run prediction", type="primary")
+
+    if not run_pred:
+        st.info("Click 'Run prediction' to score customers and see business insights.")
         return
 
     # Score customers
@@ -484,7 +540,7 @@ def main():
     # Business Q&A using text + visuals
     render_business_insights(scored_full, dec_table)
 
-    # Download scored results
+    # 7. Download scored results
     st.subheader("7. Download Scored Customers")
 
     output_cols = ["customer_id", "pd"]
@@ -494,15 +550,38 @@ def main():
         output_cols.append("decile")
 
     output_df = scored_full[output_cols].copy()
-    csv_buffer = io.StringIO()
-    output_df.to_csv(csv_buffer, index=False)
-    csv_bytes = csv_buffer.getvalue().encode("utf-8")
+
+    default_name = "scored_customers"
+    base_name = st.text_input(
+        "Output file name (without extension)",
+        value=default_name,
+    ).strip() or default_name
+
+    file_format = st.selectbox(
+        "Output format",
+        ["CSV", "Excel (.xlsx)"],
+        index=0,
+    )
+
+    if file_format == "CSV":
+        csv_buffer = io.StringIO()
+        output_df.to_csv(csv_buffer, index=False)
+        data_bytes = csv_buffer.getvalue().encode("utf-8")
+        file_name = f"{base_name}.csv"
+        mime = "text/csv"
+    else:
+        bytes_buf = BytesIO()
+        with pd.ExcelWriter(bytes_buf, engine="xlsxwriter") as writer:
+            output_df.to_excel(writer, index=False, sheet_name="scored_customers")
+        data_bytes = bytes_buf.getvalue()
+        file_name = f"{base_name}.xlsx"
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
     st.download_button(
-        label="Download scored_customers.csv",
-        data=csv_bytes,
-        file_name="scored_customers.csv",
-        mime="text/csv",
+        label="Download file",
+        data=data_bytes,
+        file_name=file_name,
+        mime=mime,
     )
 
 
