@@ -264,7 +264,6 @@ def plot_top_bottom_decile_feature_means(scored_full):
 
 
 def plot_predicted_default_vs_nondefault(df, threshold: float = 0.5):
-    # This uses PREDICTED PD, not actual labels.
     if "pd" not in df.columns:
         st.info("No 'pd' column available for prediction-based chart.")
         return
@@ -306,7 +305,7 @@ def plot_predicted_default_vs_nondefault(df, threshold: float = 0.5):
 
 
 def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame):
-    st.subheader("8. Business Questions")
+    st.subheader("10. Business Questions")
 
     has_target = "default_flag_customer" in scored_full.columns
     has_decile = "decile" in scored_full.columns
@@ -602,6 +601,17 @@ not for data preprocessing or retraining.
     st.dataframe(scored_full.head(20))
     plot_pd_histogram(scored_df)
 
+    st.subheader("7. Predicted Default vs Non-default (PD-based)")
+    threshold = st.slider(
+        "PD threshold for classifying predicted default",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.5,
+        step=0.01,
+        key="pd_threshold_slider",
+    )
+    plot_predicted_default_vs_nondefault(scored_full, threshold)
+
     if "default_flag_customer" in scored_full.columns:
         dec_input = scored_full[["customer_id", "default_flag_customer", "pd"]].copy()
     else:
@@ -615,7 +625,7 @@ not for data preprocessing or retraining.
             columns={"default_flag_customer": "n_defaults"}
         )
 
-    st.subheader("Decile Summary (1 = lowest PD, 10 = highest PD)")
+    st.subheader("8. Decile Summary (1 = lowest PD, 10 = highest PD)")
     st.dataframe(dec_table_display)
 
     dec_input = dec_input.sort_values("pd").reset_index(drop=True)
@@ -631,7 +641,7 @@ not for data preprocessing or retraining.
         how="left",
     )
 
-    st.subheader("7. Feature Importance")
+    st.subheader("9. Feature Importance")
     try:
         imp = extract_feature_importance(model)
         st.dataframe(imp.head(20))
@@ -640,17 +650,7 @@ not for data preprocessing or retraining.
 
     render_business_insights(scored_full, dec_table)
 
-    st.subheader("9. Predicted Default vs Non-default (PD-based)")
-    threshold = st.slider(
-        "PD threshold for classifying predicted default",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-    )
-    plot_predicted_default_vs_nondefault(scored_full, threshold)
-
-    st.subheader("10. Download Scored Customers")
+    st.subheader("11. Download Scored Customers")
     out_cols = ["customer_id", "pd"]
     for c in ["default_flag_customer", "decile"]:
         if c in scored_full.columns:
