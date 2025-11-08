@@ -304,7 +304,7 @@ def plot_default_vs_nondefault(df):
 
 
 def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame):
-    st.subheader("7. Business Questions")
+    st.subheader("8. Business Questions")
 
     has_target = "default_flag_customer" in scored_full.columns
     has_decile = "decile" in scored_full.columns
@@ -629,7 +629,7 @@ not for data preprocessing or retraining.
         how="left",
     )
 
-    st.subheader("7 Feature Importance")
+    st.subheader("7, Feature Importance")
     try:
         imp = extract_feature_importance(model)
         st.dataframe(imp.head(20))
@@ -679,4 +679,5 @@ not for data preprocessing or retraining.
 
 if __name__ == "__main__":
     main()
+
 
