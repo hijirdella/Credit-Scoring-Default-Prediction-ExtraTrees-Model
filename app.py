@@ -17,19 +17,19 @@ from credit_scoring_utils import (
     extract_feature_importance,
 )
 
-# Path to trained model pipeline
+# Path ke model yang sudah dilatih
 MODEL_PATH = "best_credit_scoring_extratrees.pkl"
 
-# Colors
+# Warna
 ORANGE = "#FF9800"
 DARK_GREEN = "#2E7D32"
 
-# Custom colormap for heatmap
+# Colormap untuk heatmap korelasi
 HEATMAP_CMAP = LinearSegmentedColormap.from_list(
     "green_orange", [DARK_GREEN, "white", ORANGE]
 )
 
-# Expected input columns
+# Kolom yang diharapkan ada di input CSV (struktur seperti combined_df.csv)
 REQUIRED_COLUMNS = [
     "cdate", "application_id", "customer_id", "loan_purpose",
     "loan_purpose_desc", "dob", "address_provinsi", "marital_status",
@@ -53,6 +53,9 @@ def load_model(model_path: str):
 
 
 def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Konversi kolom ID jadi string (tanpa pemisah ribuan).
+    """
     id_cols = ["application_id", "customer_id", "loan_id", "payment_id"]
     for col in id_cols:
         if col in df.columns:
@@ -70,7 +73,7 @@ def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
 def add_bar_labels(ax, fmt="{:.0f}", skip_zero: bool = True, eps: float = 1e-9):
     """
     Tambahkan label angka di atas bar.
-    Kalau skip_zero=True, bar dengan value ~0 tidak dikasih label (menghindari 0.00 jelek).
+    Kalau skip_zero=True, bar dengan value sangat kecil (~0) tidak dikasih label (menghindari 0.00).
     """
     for p in ax.patches:
         height = p.get_height()
@@ -258,7 +261,6 @@ def plot_top_bottom_decile_feature_means(scored_full):
     ax.set_xlabel("Feature")
     ax.set_ylabel("Mean Value")
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    # label, tapi skip bar yang 0.00
     add_bar_labels(ax, fmt="{:.2f}", skip_zero=True)
     st.pyplot(fig)
 
@@ -310,7 +312,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             "priced conservatively, as they contribute disproportionately to portfolio risk."
         )
 
-    # 2. 2% cumulative default rate target
+    # 2. Target 2% cumulative default rate
     st.markdown(
         "**2. If the business would like to achieve a 2% cumulative default rate, which loans should we accept?**"
     )
@@ -394,28 +396,48 @@ def main():
     st.markdown(
         """
 This interactive dashboard demonstrates a **machine learning–based credit risk model**  
-built using loan, payment, and customer data.  
+built using **loan, payment, and customer data**.
 
 ### App Flow:
-1. Upload your **`combined_df.csv`** file (raw loan–payment–customer level).  
-2. The app performs **EDA** on raw data (numeric + categorical).  
-3. Data is aggregated to **customer level** automatically.  
-4. The pre-trained ExtraTrees model predicts **Probability of Default (PD)** per customer.  
+1. Upload your **CSV file containing raw loan–payment–customer data**.  
+   - Any CSV filename is accepted (for example: `my_portfolio.csv`),  
+     as long as the **structure and columns** follow the format of  
+     the provided example file **`combined_df.csv`**.
+2. The app performs **Exploratory Data Analysis (EDA)** on the uploaded raw data  
+   (numeric and categorical overview).
+3. Data is automatically aggregated to **customer level** using consistent feature logic.  
+4. The pre-trained **ExtraTrees model** predicts the **Probability of Default (PD)** for each customer.  
 5. You can explore:
    - **Feature Importance**
    - **Correlation Heatmap**
-   - **Business Insights** (risky deciles, 2% default target, defaulter characteristics)  
-6. Download the scored dataset as CSV or Excel.
+   - **Business Insights** (risky deciles, 2% default target, and defaulter characteristics).  
+6. Finally, you can **download the scored dataset** in CSV or Excel format.
 
-**Required columns in `combined_df.csv`:**  
+---
+
+### Important Note:
+This dashboard runs on **raw, uncleaned data** to test how the model performs with  
+real-world, unprocessed inputs.  
+All data cleaning, outlier handling, and feature engineering steps were already performed  
+during model **training, validation, and testing** in Python (offline).  
+Therefore, this dashboard is designed for **model inference and business insight simulation**,  
+not for data preprocessing or retraining.
+
+---
+
+**Required columns in the input CSV:**  
 `""" + ", ".join(REQUIRED_COLUMNS) + "`"
     )
 
     st.sidebar.header("Input Data")
-    uploaded = st.sidebar.file_uploader("Upload combined_df.csv", type=["csv"])
+    uploaded = st.sidebar.file_uploader(
+        "Upload input CSV (same structure as combined_df.csv)",
+        type=["csv"],
+        help="Any CSV filename is allowed, as long as its columns follow the combined_df.csv structure.",
+    )
 
     if uploaded is None:
-        st.info("Please upload a combined_df-style CSV to start.")
+        st.info("Please upload a CSV file with combined_df-like structure to start.")
         return
 
     # Load raw data
@@ -445,7 +467,11 @@ built using loan, payment, and customer data.
     with col1:
         st.markdown("**Numeric Overview**")
         if num_cols:
-            st.dataframe(raw_df[num_cols].describe().T)
+            st.dataframe(
+                raw_df[num_cols].describe().T,
+                height=380,
+                use_container_width=True,
+            )
             sel_num = st.selectbox("Numeric column for histogram", num_cols)
             fig, ax = plt.subplots(figsize=(5, 3))
             ax.hist(raw_df[sel_num].dropna(), bins=30, color=ORANGE, edgecolor="k")
@@ -475,7 +501,11 @@ built using loan, payment, and customer data.
                     "top_category": vc.index[0] if len(vc) > 0 else None,
                     "top_count": int(vc.iloc[0]) if len(vc) > 0 else 0,
                 })
-            st.dataframe(pd.DataFrame(rows))
+            st.dataframe(
+                pd.DataFrame(rows),
+                height=380,
+                use_container_width=True,
+            )
 
             sel_cat = st.selectbox("Categorical column for bar chart", ordered)
             vc = raw_df[sel_cat].value_counts().head(15)
