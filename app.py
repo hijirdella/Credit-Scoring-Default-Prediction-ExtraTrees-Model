@@ -397,63 +397,17 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
 # Main App
 # ---------------------------------------------------------------------
 def main():
-    # Layout dua kolom: kiri untuk info (App Flow, Important Note, Created by),
-    # kanan untuk Input Data (file uploader)
-    info_col, input_col = st.columns([2, 1])
+    # Title & short description
+    st.title("Credit Default Prediction Dashboard")
+    st.markdown(
+        "This interactive dashboard demonstrates a **machine learning–based credit risk model** "
+        "built using **loan, payment, and customer data**."
+    )
 
-    with info_col:
-        st.title("Credit Default Prediction Dashboard")
+    # Row: Input Data (kiri) & App Flow (kanan)
+    left, right = st.columns([1, 1])
 
-        st.markdown(
-            """
-This interactive dashboard demonstrates a **machine learning–based credit risk model**  
-built using **loan, payment, and customer data**.
-
-### App Flow:
-1. Upload your **CSV file containing raw loan–payment–customer data**.  
-   - Any CSV filename is accepted (for example: `my_portfolio.csv`),  
-     as long as the **structure and columns** follow the format of  
-     the provided example file **`combined_df.csv`**.
-2. The app performs **Exploratory Data Analysis (EDA)** on the uploaded raw data  
-   (numeric and categorical overview).
-3. Data is automatically aggregated to **customer level** using consistent feature logic.  
-4. The pre-trained **ExtraTrees model** predicts the **Probability of Default (PD)** for each customer.  
-5. You can explore:
-   - **Feature Importance**
-   - **Correlation Heatmap**
-   - **Business Insights** (risky deciles, 2% default target, and defaulter characteristics).  
-6. Finally, you can **download the scored dataset** in CSV or Excel format.
-
----
-
-### Important Note:
-This dashboard runs on **raw, uncleaned data** to test how the model performs with  
-real-world, unprocessed inputs.  
-All data cleaning, outlier handling, and feature engineering steps were already performed  
-during model **training, validation, and testing** in Python (offline).  
-Therefore, this dashboard is designed for **model inference and business insight simulation**,  
-not for data preprocessing or retraining.
-
----
-            """
-        )
-
-        st.markdown("**Created by:** Hijir Della Wirasti")
-        st.markdown(
-            """
-[Website](https://www.hijirdata.com/)  
-[LinkedIn](https://www.linkedin.com/in/hijirdella/)  
-[Email](mailto:hijirdw@gmail.com)  
-[GitHub](https://github.com/hijirdella)
-            """
-        )
-
-        st.markdown(
-            "**Required columns in the input CSV:**  \n"
-            + "`" + ", ".join(REQUIRED_COLUMNS) + "`"
-        )
-
-    with input_col:
+    with left:
         st.markdown("### Input Data")
         uploaded = st.file_uploader(
             "Upload input CSV (same structure as combined_df.csv)",
@@ -461,6 +415,54 @@ not for data preprocessing or retraining.
             help="Any CSV filename is allowed, as long as its columns follow the combined_df.csv structure.",
         )
 
+    with right:
+        st.markdown("### App Flow")
+        st.markdown(
+            """
+1. Upload your **CSV file containing raw loan–payment–customer data**  
+   (any filename is accepted, as long as the structure and columns follow **combined_df.csv**).
+2. The app performs **Exploratory Data Analysis (EDA)** on the uploaded raw data  
+   (numeric and categorical overview).
+3. Data is automatically aggregated to **customer level** using consistent feature logic.
+4. The pre-trained **ExtraTrees model** predicts the **Probability of Default (PD)** for each customer.
+5. You can review **feature importance, correlation heatmap, business insights**,  
+   and **download scored customers** (CSV / Excel).
+            """
+        )
+
+    # Important Note dibikin collapsible
+    with st.expander("Important Note & Data Assumptions", expanded=False):
+        st.markdown(
+            """
+This dashboard runs on **raw, uncleaned data** to test how the model performs with  
+real-world, unprocessed inputs.  
+
+All data cleaning, outlier handling, and feature engineering steps were already performed  
+during model **training, validation, and testing** in Python (offline).  
+
+Therefore, this dashboard is designed for **model inference and business insight simulation**,  
+not for data preprocessing or retraining.
+            """
+        )
+        st.markdown(
+            "**Required columns in the input CSV:**  \n"
+            + "`" + ", ".join(REQUIRED_COLUMNS) + "`"
+        )
+
+    # Created by
+    st.markdown("---")
+    st.markdown("**Created by:** Hijir Della Wirasti")
+    st.markdown(
+        """
+[Website](https://www.hijirdata.com/)  
+[LinkedIn](https://www.linkedin.com/in/hijirdella/)  
+[Email](mailto:hijirdw@gmail.com)  
+[GitHub](https://github.com/hijirdella)
+        """
+    )
+    st.markdown("---")
+
+    # Stop dulu kalau belum ada file
     if uploaded is None:
         st.info("Please upload a CSV file with combined_df-like structure to start.")
         return
