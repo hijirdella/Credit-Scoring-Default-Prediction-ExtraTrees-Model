@@ -263,14 +263,15 @@ def plot_top_bottom_decile_feature_means(scored_full):
     st.pyplot(fig)
 
 
-def plot_default_vs_nondefault(df):
-    # NOTE: this uses ACTUAL labels default_flag_customer (0/1), not predicted PD.
-    if "default_flag_customer" not in df.columns:
-        st.info("No 'default_flag_customer' available.")
+def plot_predicted_default_vs_nondefault(df, threshold: float = 0.5):
+    # This uses PREDICTED PD, not actual labels.
+    if "pd" not in df.columns:
+        st.info("No 'pd' column available for prediction-based chart.")
         return
 
-    counts = df["default_flag_customer"].value_counts().sort_index()
-    labels = ["Non-default", "Default"]
+    pred_flag = (df["pd"] >= threshold).astype(int)
+    counts = pred_flag.value_counts().sort_index()
+    labels = ["Predicted non-default", "Predicted default"]
     values = [counts.get(0, 0), counts.get(1, 0)]
 
     col1, col2 = st.columns(2)
@@ -278,8 +279,8 @@ def plot_default_vs_nondefault(df):
     with col1:
         fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
         sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
-        ax.set_title("Customer Count by Default Status", fontsize=7)
-        ax.set_xlabel("Status", fontsize=5)
+        ax.set_title("Predicted Customer Count", fontsize=7)
+        ax.set_xlabel("Predicted class", fontsize=5)
         ax.set_ylabel("Count", fontsize=5)
         ax.tick_params(axis="both", labelsize=4)
         add_bar_labels(ax)
@@ -298,7 +299,7 @@ def plot_default_vs_nondefault(df):
                 startangle=90,
                 textprops={"fontsize": 4},
             )
-            ax.set_title("Customer % by Default Status", fontsize=7)
+            ax.set_title("Predicted Customer Share", fontsize=7)
             ax.axis("equal")
             plt.tight_layout()
             st.pyplot(fig)
@@ -639,8 +640,15 @@ not for data preprocessing or retraining.
 
     render_business_insights(scored_full, dec_table)
 
-    st.subheader("9. Default vs Non-default (Actual Labels)")
-    plot_default_vs_nondefault(scored_full)
+    st.subheader("9. Predicted Default vs Non-default (PD-based)")
+    threshold = st.slider(
+        "PD threshold for classifying predicted default",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.5,
+        step=0.01,
+    )
+    plot_predicted_default_vs_nondefault(scored_full, threshold)
 
     st.subheader("10. Download Scored Customers")
     out_cols = ["customer_id", "pd"]
