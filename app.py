@@ -147,7 +147,6 @@ def plot_pd_histogram(scored_df):
 
 
 def plot_correlation_heatmap(df_fe, max_features=7):
-    # numeric columns, excluding obvious ids
     num_cols = [
         c for c in df_fe.select_dtypes(include=[np.number]).columns
         if "id" not in c.lower()
@@ -155,13 +154,11 @@ def plot_correlation_heatmap(df_fe, max_features=7):
     if len(num_cols) < 2:
         return
 
-    # keep only a small set so everything fits
     if len(num_cols) > max_features:
         num_cols = num_cols[:max_features]
 
     corr = df_fe[num_cols].corr()
 
-    # flat, compact figure
     fig, ax = plt.subplots(figsize=(3, 2.0))
     sns.heatmap(
         corr,
@@ -609,8 +606,15 @@ not for data preprocessing or retraining.
         dec_input = scored_full[["customer_id", "pd"]].copy()
 
     dec_table = build_decile_table(dec_input, n_deciles=10)
+
+    dec_table_display = dec_table.copy()
+    if "default_flag_customer" in dec_table_display.columns:
+        dec_table_display = dec_table_display.rename(
+            columns={"default_flag_customer": "n_defaults"}
+        )
+
     st.subheader("Decile Summary (1 = lowest PD, 10 = highest PD)")
-    st.dataframe(dec_table)
+    st.dataframe(dec_table_display)
 
     dec_input = dec_input.sort_values("pd").reset_index(drop=True)
     dec_input["rank"] = np.arange(1, len(dec_input) + 1)
