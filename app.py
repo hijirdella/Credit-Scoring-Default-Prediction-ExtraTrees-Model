@@ -1,6 +1,5 @@
 import io
 from io import BytesIO
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -17,24 +16,14 @@ from credit_scoring_utils import (
     extract_feature_importance,
 )
 
-# Path ke model yang sudah dilatih
 MODEL_PATH = "best_credit_scoring_extratrees.pkl"
-
-# Warna
 ORANGE = "#FF9800"
 DARK_GREEN = "#2E7D32"
-
-# Tinggi tabel dan ukuran grafik standar
 TABLE_HEIGHT = 300
 FIG_W = 4
 FIG_H = 3
+HEATMAP_CMAP = LinearSegmentedColormap.from_list("green_orange", [DARK_GREEN, "white", ORANGE])
 
-# Colormap untuk heatmap korelasi
-HEATMAP_CMAP = LinearSegmentedColormap.from_list(
-    "green_orange", [DARK_GREEN, "white", ORANGE]
-)
-
-# Kolom yang diharapkan ada di input CSV (struktur seperti combined_df.csv)
 REQUIRED_COLUMNS = [
     "cdate", "application_id", "customer_id", "loan_purpose",
     "loan_purpose_desc", "dob", "address_provinsi", "marital_status",
@@ -49,19 +38,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ---------------------------------------------------------------------
-# Utility functions
-# ---------------------------------------------------------------------
 @st.cache_resource
 def load_model(model_path: str):
     model = joblib.load(model_path)
     return model
 
-
 def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Konversi kolom ID jadi string (tanpa pemisah ribuan).
-    """
     id_cols = ["application_id", "customer_id", "loan_id", "payment_id"]
     for col in id_cols:
         if col in df.columns:
@@ -75,38 +57,22 @@ def cast_id_columns(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].apply(_to_str).astype("string")
     return df
 
-
-def add_bar_labels(ax, fmt="{:.0f}", skip_zero: bool = True, eps: float = 1e-9):
-    """
-    Tambahkan label angka di atas bar.
-    Kalau skip_zero=True, bar dengan value sangat kecil (~0) tidak dikasih label.
-    """
+def add_bar_labels(ax, fmt="{:.0f}", skip_zero=True, eps=1e-9):
     for p in ax.patches:
-        height = p.get_height()
-        if np.isnan(height):
+        h = p.get_height()
+        if np.isnan(h) or (skip_zero and abs(h) < eps):
             continue
-        if skip_zero and abs(height) < eps:
-            continue
-        ax.annotate(
-            fmt.format(height),
-            (p.get_x() + p.get_width() / 2.0, height),
-            ha="center",
-            va="bottom",
-            fontsize=8
-        )
+        ax.annotate(fmt.format(h),
+                    (p.get_x() + p.get_width() / 2, h),
+                    ha="center", va="bottom", fontsize=8)
 
-# ---------------------------------------------------------------------
-# Visualization helpers
-# ---------------------------------------------------------------------
 def plot_target_distribution(df):
     if "default_flag_customer" not in df.columns:
         st.info("No target column 'default_flag_customer'.")
         return
-
     counts = df["default_flag_customer"].value_counts().sort_index()
     labels = ["Non-default", "Default"]
     values = [counts.get(0, 0), counts.get(1, 0)]
-
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
     ax.set_title("Customer Default Distribution")
@@ -114,7 +80,6 @@ def plot_target_distribution(df):
     ax.set_ylabel("Count")
     add_bar_labels(ax)
     st.pyplot(fig)
-
 
 def plot_default_rate_by_category(df, col, max_categories=8):
     if col not in df.columns or "default_flag_customer" not in df.columns:
@@ -128,7 +93,6 @@ def plot_default_rate_by_category(df, col, max_categories=8):
         .rename(columns={"default_flag_customer": "default_rate"})
         .sort_values("default_rate", ascending=False)
     )
-
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     sns.barplot(x=col, y="default_rate", data=rate_df, color=ORANGE, ax=ax)
     ax.set_title(f"Default Rate by {col}")
@@ -137,63 +101,19 @@ def plot_default_rate_by_category(df, col, max_categories=8):
     add_bar_labels(ax, fmt="{:.1%}")
     st.pyplot(fig)
 
-
 def plot_pd_histogram(scored_df):
     if "pd" not in scored_df.columns:
         return
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
-    counts, bins, patches = ax.hist(scored_df["pd"], bins=20, color=ORANGE, edgecolor="k")
+    counts, _, patches = ax.hist(scored_df["pd"], bins=20, color=ORANGE, edgecolor="k")
     ax.set_title("Predicted PD Distribution")
     ax.set_xlabel("PD")
     ax.set_ylabel("Count")
     for count, patch in zip(counts, patches):
         if count > 0:
-            ax.text(
-                patch.get_x() + patch.get_width() / 2,
-                count,
-                f"{int(count)}",
-                ha="center",
-                va="bottom",
-                fontsize=7,
-            )
+            ax.text(patch.get_x() + patch.get_width() / 2, count,
+                    f"{int(count)}", ha="center", va="bottom", fontsize=7)
     st.pyplot(fig)
-
-
-def plot_default_vs_nondefault(scored_df):
-    if "default_flag_customer" not in scored_df.columns:
-        st.info("No 'default_flag_customer' available.")
-        return
-
-    counts = scored_df["default_flag_customer"].value_counts().sort_index()
-    labels = ["Non-default", "Default"]
-    values = [counts.get(0, 0), counts.get(1, 0)]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
-        sns.barplot(x=labels, y=values, ax=ax, palette=[DARK_GREEN, ORANGE])
-        ax.set_title("Customer Count by Default Status")
-        ax.set_xlabel("Status")
-        ax.set_ylabel("Count")
-        add_bar_labels(ax)
-        st.pyplot(fig)
-
-    with col2:
-        total = sum(values)
-        if total > 0:
-            fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
-            ax.pie(
-                values,
-                labels=labels,
-                colors=[DARK_GREEN, ORANGE],
-                autopct=lambda p: f"{p:.1f}%",
-                startangle=90,
-            )
-            ax.set_title("Customer % by Default Status")
-            ax.axis("equal")
-            st.pyplot(fig)
-
 
 def plot_correlation_heatmap(df_fe, max_features=15):
     num_cols = [c for c in df_fe.select_dtypes(include=[np.number]).columns if "id" not in c.lower()]
@@ -203,244 +123,48 @@ def plot_correlation_heatmap(df_fe, max_features=15):
     if len(num_cols) > max_features:
         num_cols = num_cols[:max_features]
     corr = df_fe[num_cols].corr()
-    fig, ax = plt.subplots(figsize=(6, 5))  # heatmap boleh sedikit lebih besar
-    sns.heatmap(corr, cmap=HEATMAP_CMAP, square=True, cbar=True, linewidths=0.5, ax=ax)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(corr, cmap=HEATMAP_CMAP, square=True, linewidths=0.5, ax=ax)
     ax.set_title("Correlation Heatmap (Customer-level numeric features)")
     st.pyplot(fig)
 
-
-def plot_default_rate_deciles(dec_table):
-    if "default_rate" not in dec_table.columns:
-        return
-    d = dec_table.sort_values("decile")
-    x = d["decile"].astype(str)
-    fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
-    ax1.bar(x, d["default_rate"], color=ORANGE)
-    ax1.set_xlabel("Decile (1 = lowest PD, 10 = highest PD)")
-    ax1.set_ylabel("Default Rate")
-    add_bar_labels(ax1, fmt="{:.1%}")
-
-    if "cum_default_rate" in d.columns:
-        ax2 = ax1.twinx()
-        ax2.plot(x, d["cum_default_rate"], marker="o", color=DARK_GREEN)
-        ax2.set_ylabel("Cumulative Default Rate")
-
-    ax1.set_title("Default Rate and Cumulative Default Rate by Decile")
-    st.pyplot(fig)
-
-
-def plot_top_bottom_decile_feature_means(scored_full):
-    if "decile" not in scored_full.columns:
-        return
-
-    features = ["worst_slik_score", "pay_ratio_total", "late_ratio", "n_defaulted_loans"]
-    features = [f for f in features if f in scored_full.columns]
-    if not features:
-        return
-
-    top = scored_full[scored_full["decile"] == 10]
-    bottom = scored_full[scored_full["decile"] == 1]
-    if top.empty or bottom.empty:
-        return
-
-    mean_top = top[features].mean()
-    mean_bottom = bottom[features].mean()
-
-    plot_df = pd.DataFrame(
-        {
-            "feature": features,
-            "Decile 1 (lowest PD)": mean_bottom.values,
-            "Decile 10 (highest PD)": mean_top.values,
-        }
-    ).melt(id_vars="feature", var_name="group", value_name="value")
-
-    fig, ax = plt.subplots(figsize=(FIG_W * 1.5, FIG_H))  # sedikit lebih lebar untuk banyak fitur
-    sns.barplot(
-        data=plot_df,
-        x="feature",
-        y="value",
-        hue="group",
-        ax=ax,
-        palette={"Decile 1 (lowest PD)": DARK_GREEN, "Decile 10 (highest PD)": ORANGE},
-    )
-    ax.set_title("Key Behavioural Features: Decile 1 vs Decile 10")
-    ax.set_xlabel("Feature")
-    ax.set_ylabel("Mean Value")
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    add_bar_labels(ax, fmt="{:.2f}", skip_zero=True)
-    st.pyplot(fig)
-
-# ---------------------------------------------------------------------
-# Business insights (dynamic numbers from data)
-# ---------------------------------------------------------------------
-def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame):
-    st.subheader("7. Business Questions")
-
-    has_target = "default_flag_customer" in scored_full.columns
-    has_decile = "decile" in scored_full.columns
-
-    # 1. Which customers/loans should we avoid? Why?
-    st.markdown("**1. Which customers/loans should we avoid? Why?**")
-
-    if has_target and has_decile:
-        total_customers = len(scored_full)
-        total_defaults = scored_full["default_flag_customer"].sum()
-
-        high_risk = scored_full[scored_full["decile"].isin([9, 10])]
-        n_high = len(high_risk)
-        defaults_high = high_risk["default_flag_customer"].sum()
-
-        portfolio_share = n_high / total_customers if total_customers > 0 else np.nan
-        defaults_share = defaults_high / total_defaults if total_defaults > 0 else np.nan
-
-        avg_pd_portfolio = scored_full["pd"].mean()
-        avg_pd_high = high_risk["pd"].mean()
-
-        st.write(
-            "Customers in the highest PD deciles (e.g., deciles 9–10) should be avoided "
-            "or priced very conservatively."
-        )
-        st.write(
-            f"These segments represent around **{portfolio_share:.1%}** of the portfolio "
-            f"but capture approximately **{defaults_share:.1%}** of historical defaults "
-            "(based on the training data)."
-        )
-        st.write(
-            f"Their predicted PD is around **{avg_pd_high:.2%}**, compared to "
-            f"the portfolio average of **{avg_pd_portfolio:.2%}**, indicating poor risk–return trade-off."
-        )
-
-        plot_default_rate_deciles(dec_table)
-
-    else:
-        st.write(
-            "Customers with the highest predicted PDs (top risk deciles) should be avoided or "
-            "priced conservatively, as they contribute disproportionately to portfolio risk."
-        )
-
-    # 2. Target 2% cumulative default rate
-    st.markdown(
-        "**2. If the business would like to achieve a 2% cumulative default rate, which loans should we accept?**"
-    )
-
-    if has_target and "cum_default_rate" in dec_table.columns:
-        cut_decile = find_acceptance_cut_for_target_default_rate(dec_table, 0.02)
-        if cut_decile is None:
-            st.write(
-                "With the current portfolio and model, a 2% cumulative default target cannot be achieved "
-                "even if only the very best customers are approved."
-            )
-        else:
-            d_sorted = dec_table.sort_values("decile")
-            row = d_sorted[d_sorted["decile"] == cut_decile].iloc[0]
-            accept_rate = row["cum_accept_rate"]
-            cum_def_rate = row["cum_default_rate"]
-
-            st.write("Sort customers by ascending PD (best risk first), then approve sequentially.")
-            st.write(
-                f"To keep cumulative default rate around **2%**, accept up to **decile {int(cut_decile)}**."
-            )
-            st.write(
-                f"This corresponds to approving roughly **{accept_rate:.1%}** of customers "
-                f"with an estimated portfolio default rate of about **{cum_def_rate:.2%}** "
-                "on the historical data."
-            )
-    else:
-        st.write(
-            "Simulating a 2% cumulative default rate cut-off requires historical default labels; "
-            "with labels available, you can compute the decile where cumulative default rate first "
-            "reaches 2% and approve only up to that decile."
-        )
-
-    # 3. Characteristics of defaulters
-    st.markdown("**3. What are the characteristics of a defaulter, and how important are they?**")
-
-    if has_decile:
-        top = scored_full[scored_full["decile"] == 10]
-        bottom = scored_full[scored_full["decile"] == 1]
-
-        if not top.empty and not bottom.empty:
-            avg_pd_top = top["pd"].mean()
-            avg_pd_bottom = bottom["pd"].mean()
-
-            st.write(
-                "Comparing the highest-risk decile (decile 10) with the lowest-risk decile (decile 1):"
-            )
-            st.write(
-                f"- Average PD in decile 10: **{avg_pd_top:.2%}** "
-                f"vs decile 1: **{avg_pd_bottom:.2%}**"
-            )
-
-            st.write("Typical defaulters tend to have:")
-            if "worst_slik_score" in scored_full.columns:
-                st.write("- Higher **worst_slik_score** (more severe delinquency history)")
-            if "pay_ratio_total" in scored_full.columns:
-                st.write("- Lower **pay_ratio_total** (paid a smaller fraction of total due)")
-            if "late_ratio" in scored_full.columns:
-                st.write("- Higher **late_ratio** (more installments paid late)")
-            if "n_defaulted_loans" in scored_full.columns:
-                st.write("- More **n_defaulted_loans** in the past")
-
-            plot_top_bottom_decile_feature_means(scored_full)
-        else:
-            st.write(
-                "To compare characteristics, both decile 1 and decile 10 must contain customers. "
-                "One of them is empty in this dataset."
-            )
-    else:
-        st.write(
-            "Defaulter characteristics can be derived by comparing high-PD vs low-PD segments on "
-            "behavioural and demographic features once deciles are available."
-        )
-
-# ---------------------------------------------------------------------
-# Main App
-# ---------------------------------------------------------------------
 def main():
-    # Title & short description
     st.title("Credit Default Prediction Dashboard")
     st.markdown(
         "This interactive dashboard demonstrates a **machine learning–based credit risk model** "
         "built using **loan, payment, and customer data**."
     )
 
-    # Row: Input Data (kiri) & App Flow (kanan)
-    left, right = st.columns([1, 1])
+    st.markdown("### Input Data")
+    uploaded = st.file_uploader(
+        "Upload input CSV (same structure as combined_df.csv)",
+        type=["csv"],
+        help="Any CSV filename is allowed as long as its structure matches combined_df.csv.",
+    )
 
-    with left:
-        st.markdown("### Input Data")
-        uploaded = st.file_uploader(
-            "Upload input CSV (same structure as combined_df.csv)",
-            type=["csv"],
-            help="Any CSV filename is allowed, as long as its columns follow the combined_df.csv structure.",
-        )
-
-    with right:
-        st.markdown("### App Flow")
+    with st.expander("App Flow", expanded=False):
         st.markdown(
             """
-1. Upload your **CSV file containing raw loan–payment–customer data**  
-   (any filename is accepted, as long as the structure and columns follow **combined_df.csv**).
-2. The app performs **Exploratory Data Analysis (EDA)** on the uploaded raw data  
-   (numeric and categorical overview).
-3. Data is automatically aggregated to **customer level** using consistent feature logic.
+1. Upload your **CSV file** containing raw loan–payment–customer data  
+   (any filename is accepted as long as the structure matches **combined_df.csv**).
+2. The app performs **Exploratory Data Analysis (EDA)** on the uploaded dataset.
+3. Data is aggregated automatically to **customer level** using predefined logic.
 4. The pre-trained **ExtraTrees model** predicts the **Probability of Default (PD)** for each customer.
-5. You can review **feature importance, correlation heatmap, business insights**,  
-   and **download scored customers** (CSV / Excel).
+5. You can explore **feature importance, correlation heatmap, business insights**,  
+   and **download the scored customers** (CSV / Excel).
             """
         )
 
-    # Important Note dibikin collapsible
     with st.expander("Important Note & Data Assumptions", expanded=False):
         st.markdown(
             """
-This dashboard runs on **raw, uncleaned data** to test how the model performs with  
+This dashboard runs on **raw, uncleaned data** to test model performance on  
 real-world, unprocessed inputs.  
 
-All data cleaning, outlier handling, and feature engineering steps were already performed  
-during model **training, validation, and testing** in Python (offline).  
+All data cleaning, outlier handling, and feature engineering were done  
+during **training, validation, and testing** in Python (offline).  
 
-Therefore, this dashboard is designed for **model inference and business insight simulation**,  
+Hence, this dashboard is designed for **model inference and business insight simulation**,  
 not for data preprocessing or retraining.
             """
         )
@@ -449,25 +173,19 @@ not for data preprocessing or retraining.
             + "`" + ", ".join(REQUIRED_COLUMNS) + "`"
         )
 
-    # Created by
-    st.markdown("---")
-    st.markdown("**Created by:** Hijir Della Wirasti")
-    st.markdown(
-        """
+    with st.expander("Created by: Hijir Della Wirasti", expanded=False):
+        st.markdown(
+            """
 [Website](https://www.hijirdata.com/)  
-[LinkedIn](https://www.linkedin.com/in/hijirdella/)  
 [Email](mailto:hijirdw@gmail.com)  
-[GitHub](https://github.com/hijirdella)
-        """
-    )
-    st.markdown("---")
+[LinkedIn](https://www.linkedin.com/in/hijirdella/)
+            """
+        )
 
-    # Stop dulu kalau belum ada file
     if uploaded is None:
-        st.info("Please upload a CSV file with combined_df-like structure to start.")
+        st.info("Please upload a CSV file first to begin.")
         return
 
-    # Load raw data
     try:
         raw_df = pd.read_csv(uploaded)
     except Exception as e:
@@ -475,7 +193,6 @@ not for data preprocessing or retraining.
         return
 
     raw_df = cast_id_columns(raw_df)
-
     st.subheader("1. Raw Input Preview")
     st.write(f"Rows: {raw_df.shape[0]}, Columns: {raw_df.shape[1]}")
     st.dataframe(raw_df.head(20))
@@ -484,21 +201,15 @@ not for data preprocessing or retraining.
     if missing:
         st.warning("Missing expected columns: " + ", ".join(missing))
 
-    # 2. Raw Data EDA
-    st.subheader("2. Raw Data EDA")
+    st.subheader("2. Exploratory Data Analysis (EDA)")
     num_cols = raw_df.select_dtypes(include=[np.number]).columns.tolist()
     cat_cols = raw_df.select_dtypes(include=["object", "string"]).columns.tolist()
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("**Numeric Overview**")
         if num_cols:
-            st.dataframe(
-                raw_df[num_cols].describe().T,
-                height=TABLE_HEIGHT,
-                use_container_width=True,
-            )
+            st.dataframe(raw_df[num_cols].describe().T, height=TABLE_HEIGHT)
             sel_num = st.selectbox("Numeric column for histogram", num_cols)
             fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
             ax.hist(raw_df[sel_num].dropna(), bins=30, color=ORANGE, edgecolor="k")
@@ -507,46 +218,23 @@ not for data preprocessing or retraining.
             ax.set_ylabel("Frequency")
             st.pyplot(fig)
         else:
-            st.info("No numeric columns found.")
-
+            st.info("No numeric columns detected.")
     with col2:
         st.markdown("**Categorical Overview**")
         if cat_cols:
-            # urutan: kategori biasa -> date/time -> ID (paling bawah)
-            date_cols = [c for c in cat_cols if any(x in c.lower() for x in ["date", "time", "ts"])]
-            id_cols = [c for c in cat_cols if "id" in c.lower()]
-            main_cat = [c for c in cat_cols if c not in id_cols + date_cols]
-
-            ordered = main_cat + [c for c in cat_cols if c in date_cols] + [c for c in cat_cols if c in id_cols]
-
             rows = []
-            for c in ordered:
+            for c in cat_cols:
                 vc = raw_df[c].value_counts(dropna=False)
                 rows.append({
-                    "column": c,
-                    "n_unique": len(vc),
-                    "top_category": vc.index[0] if len(vc) > 0 else None,
-                    "top_count": int(vc.iloc[0]) if len(vc) > 0 else 0,
+                    "Column": c,
+                    "Unique Values": len(vc),
+                    "Top Category": vc.index[0] if len(vc) > 0 else None,
+                    "Count": int(vc.iloc[0]) if len(vc) > 0 else 0,
                 })
-            st.dataframe(
-                pd.DataFrame(rows),
-                height=TABLE_HEIGHT,
-                use_container_width=True,
-            )
-
-            sel_cat = st.selectbox("Categorical column for bar chart", ordered)
-            vc = raw_df[sel_cat].value_counts().head(15)
-            fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
-            sns.barplot(x=vc.index, y=vc.values, ax=ax, color=DARK_GREEN)
-            ax.set_title(f"Top categories of {sel_cat}")
-            ax.set_xlabel(sel_cat)
-            ax.set_ylabel("Count")
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-            st.pyplot(fig)
+            st.dataframe(pd.DataFrame(rows), height=TABLE_HEIGHT)
         else:
-            st.info("No categorical columns found.")
+            st.info("No categorical columns detected.")
 
-    # 3. Customer-level Feature Engineering
     st.subheader("3. Customer-level Feature Engineering")
     try:
         df_fe = build_customer_features_from_combined(raw_df)
@@ -556,28 +244,10 @@ not for data preprocessing or retraining.
     st.write(f"Customer-level shape: {df_fe.shape}")
     st.dataframe(df_fe.head(20))
 
-    # 4. Customer-level EDA
-    st.subheader("4. Customer-level EDA")
-    c1, c2 = st.columns(2)
-    with c1:
-        plot_target_distribution(df_fe)
-    with c2:
-        plot_default_rate_by_category(df_fe, "worst_slik_score")
-
-    c3, c4 = st.columns(2)
-    with c3:
-        if "main_loan_purpose" in df_fe.columns:
-            plot_default_rate_by_category(df_fe, "main_loan_purpose")
-    with c4:
-        if "age_bucket" in df_fe.columns:
-            plot_default_rate_by_category(df_fe, "age_bucket")
-
-    # 5. Correlation heatmap
-    st.subheader("5. Correlation Heatmap")
+    st.subheader("4. Correlation Heatmap")
     plot_correlation_heatmap(df_fe)
 
-    # 6. Model Prediction
-    st.subheader("6. Model Prediction")
+    st.subheader("5. Model Prediction")
     try:
         model = load_model(MODEL_PATH)
     except Exception as e:
@@ -595,53 +265,12 @@ not for data preprocessing or retraining.
     st.dataframe(scored_full.head(20))
     plot_pd_histogram(scored_df)
 
-    # Decile table
-    if "default_flag_customer" in scored_full.columns:
-        scored_for_decile = scored_full[["customer_id", "default_flag_customer", "pd"]].copy()
-    else:
-        scored_for_decile = scored_full[["customer_id", "pd"]].copy()
-
-    dec_table = build_decile_table(scored_for_decile, n_deciles=10)
+    dec_table = build_decile_table(scored_full[["customer_id", "pd"]], n_deciles=10)
     st.subheader("Decile Summary (1 = lowest PD, 10 = highest PD)")
     st.dataframe(dec_table)
 
-    # Attach decile back to customers
-    scored_for_decile = scored_for_decile.sort_values("pd").reset_index(drop=True)
-    scored_for_decile["rank"] = np.arange(1, len(scored_for_decile) + 1)
-    scored_for_decile["decile"] = pd.qcut(
-        scored_for_decile["rank"],
-        10,
-        labels=list(range(1, 11)),
-    )
-    scored_full = scored_full.merge(
-        scored_for_decile[["customer_id", "decile"]],
-        on="customer_id",
-        how="left",
-    )
-
-    # Feature importance
-    st.subheader("7.1 Feature Importance")
-    try:
-        imp = extract_feature_importance(model)
-        st.dataframe(imp.head(20))
-    except Exception as e:
-        st.warning(f"Could not extract feature importance: {e}")
-
-    # Business questions with dynamic numbers
-    render_business_insights(scored_full, dec_table)
-
-    # Default vs non-default overview
-    st.subheader("8. Default vs Non-default (Actual Labels)")
-    plot_default_vs_nondefault(scored_full)
-
-    # Download section
-    st.subheader("9. Download Scored Customers")
     out_cols = ["customer_id", "pd"]
-    for c in ["default_flag_customer", "decile"]:
-        if c in scored_full.columns:
-            out_cols.append(c)
     out_df = scored_full[out_cols].copy()
-
     base = st.text_input("Output file name (without extension)", value="scored_customers").strip() or "scored_customers"
     fmt = st.selectbox("Output format", ["CSV", "Excel (.xlsx)"])
 
@@ -664,7 +293,6 @@ not for data preprocessing or retraining.
             f"{base}.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-
 
 if __name__ == "__main__":
     main()
