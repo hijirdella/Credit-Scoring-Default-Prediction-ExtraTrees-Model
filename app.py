@@ -264,6 +264,7 @@ def plot_top_bottom_decile_feature_means(scored_full):
 
 
 def plot_default_vs_nondefault(df):
+    # NOTE: this uses ACTUAL labels default_flag_customer (0/1), not predicted PD.
     if "default_flag_customer" not in df.columns:
         st.info("No 'default_flag_customer' available.")
         return
@@ -629,7 +630,7 @@ not for data preprocessing or retraining.
         how="left",
     )
 
-    st.subheader("7, Feature Importance")
+    st.subheader("7. Feature Importance")
     try:
         imp = extract_feature_importance(model)
         st.dataframe(imp.head(20))
@@ -638,10 +639,10 @@ not for data preprocessing or retraining.
 
     render_business_insights(scored_full, dec_table)
 
-    st.subheader("8. Default vs Non-default (Actual Labels)")
+    st.subheader("9. Default vs Non-default (Actual Labels)")
     plot_default_vs_nondefault(scored_full)
 
-    st.subheader("9. Download Scored Customers")
+    st.subheader("10. Download Scored Customers")
     out_cols = ["customer_id", "pd"]
     for c in ["default_flag_customer", "decile"]:
         if c in scored_full.columns:
@@ -679,5 +680,3 @@ not for data preprocessing or retraining.
 
 if __name__ == "__main__":
     main()
-
-
