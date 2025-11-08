@@ -629,7 +629,7 @@ not for data preprocessing or retraining.
         how="left",
     )
 
-    st.subheader("7.1 Feature Importance")
+    st.subheader("7 Feature Importance")
     try:
         imp = extract_feature_importance(model)
         st.dataframe(imp.head(20))
@@ -679,3 +679,4 @@ not for data preprocessing or retraining.
 
 if __name__ == "__main__":
     main()
+
