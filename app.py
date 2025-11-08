@@ -13,7 +13,7 @@ def load_model(model_path: str = "best_credit_scoring_extratrees.pkl"):
     return joblib.load(model_path)
 
 
-st.title("Credit Scoring – ExtraTrees Model")
+st.title("Credit Default Prediction Dashboard")
 st.write("Upload combined loan–payment–customer data (CSV) to score default risk at customer level.")
 
 
@@ -113,3 +113,4 @@ if uploaded_file is not None:
     )
 else:
     st.info("Please upload a combined_df-style CSV to start scoring.")
+
