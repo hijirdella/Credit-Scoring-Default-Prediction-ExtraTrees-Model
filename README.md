@@ -7,8 +7,8 @@ It performs automated customer-level feature engineering, applies SLIK-style cre
 
 ## Live Application
 
-- Streamlit App: [https://credit-scoring-default-prediction-dashboard.streamlit.app/](https://credit-scoring-default-prediction-dashboard.streamlit.app/)
-- GitHub Repository: [https://github.com/hijirdella/Credit-Scoring-Default-Prediction-Dashboard](https://github.com/hijirdella/Credit-Scoring-Default-Prediction-Dashboard)
+- Streamlit App: []()
+- GitHub Repository: []()
 
 ---
 
