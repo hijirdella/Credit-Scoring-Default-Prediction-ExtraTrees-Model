@@ -511,6 +511,8 @@ not for data preprocessing or retraining.
             ax.set_xlabel(sel_num, fontsize=5)
             ax.set_ylabel("Frequency", fontsize=5)
             ax.tick_params(axis="both", labelsize=4)
+            # kecilkan tulisan offset scientific notation (mis. 1e7)
+            ax.xaxis.get_offset_text().set_fontsize(4)
             plt.tight_layout()
             st.pyplot(fig)
         else:
@@ -602,7 +604,9 @@ not for data preprocessing or retraining.
     plot_pd_histogram(scored_df)
 
     st.subheader("7. Predicted Default vs Non-default (PD-based)")
-    st.caption("Classification uses a fixed PD threshold of 0.50 to separate predicted default vs non-default.")
+    st.caption(
+        "Classification uses a fixed PD threshold of 0.50 to separate predicted default vs non-default."
+    )
     plot_predicted_default_vs_nondefault(scored_full, threshold=0.5)
 
     if "default_flag_customer" in scored_full.columns:
