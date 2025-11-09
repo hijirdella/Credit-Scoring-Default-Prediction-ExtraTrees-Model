@@ -310,6 +310,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
     has_target = "default_flag_customer" in scored_full.columns
     has_decile = "decile" in scored_full.columns
 
+    # 1. Which customers/loans should we avoid? Why?
     st.markdown("**1. Which customers/loans should we avoid? Why?**")
     if has_target and has_decile:
         total_customers = len(scored_full)
@@ -317,6 +318,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
         high_risk = scored_full[scored_full["decile"].isin([9, 10])]
         n_high = len(high_risk)
         defaults_high = high_risk["default_flag_customer"].sum()
+
         portfolio_share = n_high / total_customers if total_customers > 0 else np.nan
         defaults_share = (
             defaults_high / total_defaults if total_defaults > 0 else np.nan
@@ -338,6 +340,18 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             "risk–return trade-off."
         )
 
+        # Small KPI-style explanation of where the numbers come from
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Portfolio share (Deciles 9–10)", f"{portfolio_share:.1%}")
+        m2.metric("Share of defaults (Deciles 9–10)", f"{defaults_share:.1%}")
+        m3.metric("Avg PD – portfolio", f"{avg_pd_portfolio:.2%}")
+        m4.metric("Avg PD – deciles 9–10", f"{avg_pd_high:.2%}")
+
+        st.caption(
+            "These values are calculated from the scored portfolio by comparing "
+            "customers in deciles 9–10 with all customers."
+        )
+
         plot_default_rate_deciles(dec_table)
     else:
         st.write(
@@ -345,6 +359,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             "conservatively, as they contribute disproportionately to portfolio risk."
         )
 
+    # 2. If the business would like to achieve a 2% cumulative default rate, which loans should we accept?
     st.markdown(
         "**2. If the business would like to achieve a 2% cumulative default rate, "
         "which loans should we accept?**"
@@ -361,6 +376,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             row = d_sorted[d_sorted["decile"] == cut_decile].iloc[0]
             accept_rate = row["cum_accept_rate"]
             cum_def_rate = row["cum_default_rate"]
+
             st.write(
                 "Sort customers by ascending PD (best risk first) and approve "
                 "sequentially."
@@ -374,6 +390,26 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
                 "customers with an estimated portfolio default rate of about "
                 f"**{cum_def_rate:.2%}** on the historical data."
             )
+
+            # Show the decile table used to derive these numbers
+            st.markdown("Decile cut is derived from the cumulative decile summary below:")
+            dec_view = d_sorted[["decile", "cum_accept_rate", "cum_default_rate"]].copy()
+            dec_view = dec_view.rename(
+                columns={
+                    "decile": "Decile",
+                    "cum_accept_rate": "Cumulative acceptance rate",
+                    "cum_default_rate": "Cumulative default rate",
+                }
+            )
+            st.dataframe(
+                dec_view.style.format(
+                    {
+                        "Cumulative acceptance rate": "{:.1%}",
+                        "Cumulative default rate": "{:.2%}",
+                    }
+                ),
+                height=220,
+            )
     else:
         st.write(
             "A 2% cumulative default cut-off can be simulated once historical "
@@ -381,6 +417,7 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
             "cumulative default rate first reaches 2%."
         )
 
+    # 3. What are the characteristics of a defaulter, and how important are they?
     st.markdown(
         "**3. What are the characteristics of a defaulter, and how important are they?**"
     )
@@ -406,7 +443,22 @@ def render_business_insights(scored_full: pd.DataFrame, dec_table: pd.DataFrame)
                 st.write("- Higher **late_ratio** (more late instalments)")
             if "n_defaulted_loans" in scored_full.columns:
                 st.write("- More **n_defaulted_loans** historically")
+
+            # Small table to show average PD numbers explicitly
+            pd_summary = pd.DataFrame(
+                {
+                    "Decile": ["1 (lowest PD)", "10 (highest PD)"],
+                    "Average PD": [avg_pd_bottom, avg_pd_top],
+                }
+            )
+            st.markdown("Average PD comparison between lowest and highest deciles:")
+            st.dataframe(pd_summary.style.format({"Average PD": "{:.2%}"}), height=120)
+
             plot_top_bottom_decile_feature_means(scored_full)
+            st.caption(
+                "The bar chart compares mean values of key behavioural features "
+                "between safest (Decile 1) and riskiest (Decile 10) customers."
+            )
         else:
             st.write(
                 "Both decile 1 and decile 10 must contain customers to compare "
@@ -511,7 +563,6 @@ not for data preprocessing or retraining.
             ax.set_xlabel(sel_num, fontsize=5)
             ax.set_ylabel("Frequency", fontsize=5)
             ax.tick_params(axis="both", labelsize=4)
-            # kecilkan tulisan offset scientific notation (mis. 1e7)
             ax.xaxis.get_offset_text().set_fontsize(4)
             plt.tight_layout()
             st.pyplot(fig)
