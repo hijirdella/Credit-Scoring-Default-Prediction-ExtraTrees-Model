@@ -27,7 +27,7 @@ Watch the full walkthrough here:
 Develop an interpretable and robust machine learning model to predict the likelihood of customer default using behavioral and demographic data.
 
 **Model**
-ExtraTrees Classifier — selected for its generalization strength, interpretability, and high AUC (~0.91 mean cross-validation).
+ExtraTrees Classifier selected for its generalization strength, interpretability, and high AUC (~0.91 mean cross-validation).
 
 **Data Source**
 Historical loan–payment–customer dataset (`combined_df.csv`), processed into customer-level features consistent with SLIK credit scoring definitions.
